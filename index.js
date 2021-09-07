@@ -2,6 +2,8 @@ const { createHash } = require('crypto');
 const { createReadStream, createWriteStream, rename } = require('fs');
 const { basename, dirname, extname, resolve: resolvePath } = require('path');
 
+const { uploadCloudFormationFile } = require('serverless/lib/plugins/aws/deploy/lib/uploadArtifacts.js');
+
 /**
  * Whether the provider naming can be reconfigured to keep the compiled template in a timestamped directory
  *
@@ -29,6 +31,23 @@ class HashedArtifactsPlugin {
 			'after:package:createDeploymentArtifacts': async () => {
 				await this.prepareHashedArtifactDirectoryName();
 			},
+			'after:aws:deploy:deploy:uploadArtifacts': async () => {
+				if (!CAN_RECONFIGURE_COMPILED_TEMPLATE_S3_SUFFIX) {
+					// Replicate "setBucketName"
+					// XXX: `uploadCloudFormationFile` could just read the name of the bucket object _it already has!_
+					const bucketName = await this.provider.getServerlessDeploymentBucketName();
+					this.bucketName = bucketName;
+
+					// Update the template again with a changed suffix, and then restore the original naming.
+					// This should make it possible for `rollback` to see the template to restore.
+					const cleanup = this.reconfigureCompiledTemplateS3Suffix();
+					try {
+						await uploadCloudFormationFile.call(this);
+					} finally {
+						cleanup();
+					}
+				}
+			}
 		};
 	}
 
@@ -104,11 +123,7 @@ class HashedArtifactsPlugin {
 
 			// Keep the template itself in a by-date location by monkey-patching into the naming
 			if (CAN_RECONFIGURE_COMPILED_TEMPLATE_S3_SUFFIX) {
-				const date = new Date();
-				const dateString = `${date.getTime().toString()}-${date.toISOString()}`;
-				const originalCompiledTemplateS3Suffix = this.provider.naming.getCompiledTemplateS3Suffix();
-				this.provider.naming.getCompiledTemplateS3Suffix = () =>
-					`${dateString}/${originalCompiledTemplateS3Suffix}`;
+				this.reconfigureCompiledTemplateS3Suffix();
 			} else {
 				this.serverless.cli.log(
 					`Cannot reconfigure the path to the compiled template, rollbacks are unavailable`,
@@ -166,6 +181,17 @@ class HashedArtifactsPlugin {
 				});
 			});
 		});
+	}
+
+	reconfigureCompiledTemplateS3Suffix(naming = this.provider.naming) {
+		const date = new Date();
+		const dateString = `${date.getTime().toString()}-${date.toISOString()}`;
+		const originalGetCompiledTemplateS3Suffix = naming.getCompiledTemplateS3Suffix;
+		naming.getCompiledTemplateS3Suffix = () =>
+			`${dateString}/${originalGetCompiledTemplateS3Suffix.call(naming)}`;
+		return () => {
+			naming.getCompiledTemplateS3Suffix = originalGetCompiledTemplateS3Suffix;
+		};
 	}
 }
 

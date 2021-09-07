@@ -24,5 +24,8 @@
   "homepage": "https://github.com/Collaborne/serverless-plugin-hashed-artifacts#readme",
   "files": [
     "index.js"
-  ]
+  ],
+  "peerDependencies": {
+    "serverless": "2.22.0"
+  }
 }
