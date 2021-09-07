@@ -1,6 +1,6 @@
 {
   "name": "serverless-plugin-hashed-artifacts",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A serverless framework plugin to keep artifacts in a hashed structure to reduce deployment costs",
   "main": "index.js",
   "scripts": {
