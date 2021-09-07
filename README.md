@@ -2,7 +2,7 @@
 
 Serverless Framework plugin to reduce deployment times by moving artifacts when possible into a hash-addressed path.
 
-_Note: This is experimental, and likely doesn't work for you. In particular it will break rollbacks, and it will refuse to work if not all functions are using pre-defined artifacts and are packaged individually._
+_Note: This is experimental, and likely doesn't work for you. In particular [it will break rollbacks](https://github.com/serverless/serverless/pull/9926), and it will refuse to work if not all functions are using pre-defined artifacts and are packaged individually._
 
 ## Usage
 
